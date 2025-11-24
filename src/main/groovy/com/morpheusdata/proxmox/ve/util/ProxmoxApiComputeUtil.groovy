@@ -319,7 +319,6 @@ class ProxmoxApiComputeUtil {
         def nextId = callListApiV2(client, "cluster/nextid", authConfig).data
         log.debug("Next VM Id is: $nextId")
         StorageVolume rootVolume = volumes.find { it.rootVolume }
-
         try {
             def tokenCfg = getApiV2Token(authConfig).data
             rtn.data = []
@@ -550,7 +549,8 @@ class ProxmoxApiComputeUtil {
                             vmid: nextId,
                             node: nodeId,
                             name: imageName.replaceAll(/\s+/, ''),
-                            template: true
+                            template: true,
+                            scsihw: "virtio-scsi-single"
                     ],
                     contentType: ContentType.APPLICATION_JSON,
                     ignoreSSL: true
