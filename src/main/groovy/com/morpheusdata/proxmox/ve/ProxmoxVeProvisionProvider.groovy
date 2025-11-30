@@ -1092,7 +1092,7 @@ class ProxmoxVeProvisionProvider extends AbstractProvisionProvider implements Vm
 						externalId       : "scsi$nextScsi",
 						maxStorage       : newVMDisk.maxStorage,
 						refType          : "ComputeServer",
-						refId            : workload.server.id,
+						refId            : server.id,
 						name             : newVMDisk.name
 				]
 				if (newVMDisk.datastoreId == "auto") {
