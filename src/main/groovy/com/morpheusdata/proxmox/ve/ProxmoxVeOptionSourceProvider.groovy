@@ -79,33 +79,34 @@ class ProxmoxVeOptionSourceProvider extends AbstractOptionSourceProvider {
         def cloudId = args?.size() > 0 ? args.getAt(0).zoneId.toLong() : null
         def accountId = args?.size() > 0 ? args.getAt(0).accountId.toLong() : null
         def locationExternalIds = []
+        def addedImageIds = []
 
         def options = []
         def invalidStatus = ['Saving', 'Failed', 'Converting']
+        
+        // Add synced templates from Proxmox (with category 'proxmox.image')
         def syncedVirtualImageLocations = morpheusContext.async.virtualImage.location.listIdentityProjections(
                 new DataQuery().
                         withFilter('refId', cloudId).
                         withFilter('category', 'proxmox.image')
         ).blockingSubscribe() {
-            //if (it.deleted == false &&
-            //    !(it.status in invalidStatus)) {
             if (morpheusContext.services.virtualImage.listById([it.virtualImage.id]).first().userUploaded) {
                 options << [name: "$it.virtualImage.name (Uploaded)", value: it.virtualImage.id]
             } else {
                 options << [name: it.virtualImage.name, value: it.virtualImage.id]
             }
-                locationExternalIds << it.externalId
-            log.debug("External ID found: $it.externalId")
-            //}
+            locationExternalIds << it.externalId
+            addedImageIds << it.virtualImage.id
+            log.debug("Synced template found: $it.virtualImage.name ($it.externalId)")
         }
 
+        // Add user-uploaded qcow2 images that haven't been uploaded to Proxmox yet
         ImageType[] imageTypes = [ImageType.qcow2]
         def virtualImageIds = morpheusContext.async.virtualImage.listIdentityProjections(accountId, imageTypes).filter {
             it.deleted == false
         }.map{it.id}.toList().blockingGet()
 
         if(virtualImageIds.size() > 0) {
-
             def query = new DataQuery().withFilters([
                     new DataFilter('status', 'Active'),
                     new DataFilter('id', 'in', virtualImageIds),
@@ -113,8 +114,9 @@ class ProxmoxVeOptionSourceProvider extends AbstractOptionSourceProvider {
             ])
 
             morpheusContext.async.virtualImage.list(query).blockingSubscribe {
-                if (!(it.externalId in locationExternalIds)) {
-                    log.debug("Uploaded External ID found: $it.externalId ($it.name)")
+                // Only add if not already in the list from synced templates
+                if (!(it.id in addedImageIds) && !(it.externalId in locationExternalIds)) {
+                    log.debug("User-uploaded image found: $it.name (ID: $it.id)")
                     options << [name: "$it.name (To Be Uploaded)", value: it.id]
                 }
             }
